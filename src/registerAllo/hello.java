@@ -7,14 +7,15 @@ public class hello {
     private static final int NUM_REGISTERS = 8;  // Assume we have 8 registers available
     private static final int MAX_SPILLED_REGISTERS = 4;  // Max number of spilled variables
     
-    // Data structures for variables, live ranges, and register assignments
     private List<Variable> variables = new ArrayList<>();
     private List<Interval> intervals = new ArrayList<>();
     private Map<String, Integer> registerAssignment = new HashMap<>();
     private Set<String> spilledVariables = new HashSet<>();
     
-    // This method simulates the live range analysis and assigns registers
+    // Perform register allocation and measure performance
     public void performRegisterAllocation(List<String> instructions) {
+        long startTime = System.nanoTime();  // Start time for execution time measurement
+
         // Step 1: Analyze the live ranges of variables
         analyzeLiveRanges(instructions);
 
@@ -24,19 +25,24 @@ public class hello {
         // Step 3: Handle any spilled variables
         handleSpilling();
 
-        // Output the results
+        long endTime = System.nanoTime();  // End time for execution time measurement
+        long duration = endTime - startTime;  // Duration in nanoseconds
+
+        // Print the results
         System.out.println("Register Assignments: " + registerAssignment);
         System.out.println("Spilled Variables: " + spilledVariables);
+        System.out.println("Execution Time: " + duration + " ns");
+        System.out.println("Number of Spills: " + spilledVariables.size());
+        System.out.println("Memory Usage: " + getMemoryUsage() + " bytes");
     }
 
     // Analyze the live ranges of variables in the program
     private void analyzeLiveRanges(List<String> instructions) {
         int currentIndex = 0;
         for (String instruction : instructions) {
-            // Identify variables used and defined in each instruction
             String[] parts = instruction.split(" ");
             for (String part : parts) {
-                if (part.matches("[a-zA-Z]+")) {  // Assume variables are alphabetic
+                if (part.matches("[a-zA-Z]+")) {
                     Interval interval = new Interval(part, currentIndex, currentIndex);
                     intervals.add(interval);
                     variables.add(new Variable(part, interval));
@@ -48,39 +54,40 @@ public class hello {
 
     // Allocate registers using linear scan algorithm
     private void allocateRegisters() {
-        Collections.sort(intervals, Comparator.comparingInt(i -> i.start));  // Sort by start of intervals
+        Collections.sort(intervals, Comparator.comparingInt(i -> i.start));
         
-        // Active list of variables in registers
         List<Variable> activeVars = new ArrayList<>();
         
         for (Interval interval : intervals) {
-            // Remove variables from active list that are no longer live
             activeVars.removeIf(var -> var.interval.end < interval.start);
             
-            // Check if the variable can be coalesced
             if (activeVars.size() < NUM_REGISTERS) {
                 registerAssignment.put(interval.variableName, activeVars.size());
                 activeVars.add(new Variable(interval.variableName, interval));
             } else {
-                // Spill the least recently used variable
                 Variable spilledVar = activeVars.get(0);
                 spilledVariables.add(spilledVar.name);
                 activeVars.remove(0);
-                registerAssignment.put(interval.variableName, -1);  // -1 for spilled variables
+                registerAssignment.put(interval.variableName, -1);
                 activeVars.add(new Variable(interval.variableName, interval));
             }
         }
     }
 
-    // Handle spilling for variables that couldn't be assigned to registers
     private void handleSpilling() {
         if (spilledVariables.size() > MAX_SPILLED_REGISTERS) {
-            // A more sophisticated spilling mechanism could be applied here
             System.out.println("Too many variables spilled! Consider optimizing live range splitting.");
         }
     }
+
+    // Method to measure memory usage
+    private long getMemoryUsage() {
+        Runtime runtime = Runtime.getRuntime();
+        long usedMemoryBefore = runtime.totalMemory() - runtime.freeMemory();
+        return usedMemoryBefore;
+    }
     
-    // Class representing a variable with its live range interval
+    // Variable class represents a variable and its live range
     class Variable {
         String name;
         Interval interval;
@@ -91,7 +98,7 @@ public class hello {
         }
     }
     
-    // Class representing an interval for a variable's live range
+    // Interval class represents the live range of a variable
     class Interval {
         String variableName;
         int start, end;
@@ -103,18 +110,24 @@ public class hello {
         }
     }
 
+    // Main method to accept input and evaluate the allocator
     public static void main(String[] args) {
         hello allocator = new hello();
         
-        // Sample instructions (simple example, real instructions would be more complex)
-        List<String> instructions = Arrays.asList(
-                "a = b + c",
-                "d = a * b",
-                "e = a + d",
-                "f = e - b",
-                "g = f + a"
-        );
+        // Example input program (sample instructions)
+        Scanner scanner = new Scanner(System.in);
+        System.out.println("Enter your program instructions (type 'end' to finish):");
         
+        List<String> instructions = new ArrayList<>();
+        String line;
+        
+        while (!(line = scanner.nextLine()).equals("end")) {
+            instructions.add(line);
+        }
+        
+        // Perform register allocation
         allocator.performRegisterAllocation(instructions);
+        
+        // You can extend this with other test cases or compare to a naive allocator here
     }
 }
